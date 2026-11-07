@@ -14,11 +14,47 @@ import os
 import queue
 import sys
 import threading
-import tkinter as tk
 import traceback
-from tkinter import filedialog, messagebox, ttk
 
-import rgi_msn as R
+
+def _bootstrap_tcl() -> None:
+    """Point Tcl/Tk at the copies inside a PyInstaller bundle.
+
+    Conda keeps tcl86t.dll / tk86t.dll in Library/bin and the Tcl script
+    libraries in Library/lib, not the layout CPython uses, so PyInstaller's
+    stock tkinter hook does not find them and the frozen app dies with
+    'DLL load failed while importing _tkinter'.  The build adds them
+    explicitly; this tells the interpreter where they landed.
+    """
+    base = getattr(sys, "_MEIPASS", None)
+    if not base:
+        return
+    try:
+        os.add_dll_directory(base)
+    except (AttributeError, OSError):
+        pass
+    # PyInstaller's own tkinter hook collects the script libraries into
+    # _tcl_data / _tk_data and points Tcl at them; only fall back to a
+    # version-named directory, and only if it really holds the bootstrap
+    # script, so we never override a working default with a broken path.
+    for var, subs, probe in (("TCL_LIBRARY", ("_tcl_data", "tcl8.6"), "init.tcl"),
+                             ("TK_LIBRARY", ("_tk_data", "tk8.6"), "tk.tcl")):
+        current = os.environ.get(var)
+        if current and os.path.isfile(os.path.join(current, probe)):
+            continue
+        for sub in subs:
+            path = os.path.join(base, sub)
+            if os.path.isfile(os.path.join(path, probe)):
+                os.environ[var] = path
+                break
+
+
+_bootstrap_tcl()
+
+import tkinter as tk                                            # noqa: E402
+from tkinter import filedialog, messagebox, ttk                  # noqa: E402
+
+import rgi_msn as R                                              # noqa: E402
 
 APP = "RG-I MS\u207f Interpreter"
 PRESETS = {
@@ -437,8 +473,77 @@ class App(tk.Tk):
         self.status.config(text="wrote %s" % os.path.basename(fn))
 
 
+def selftest(report_path: str | None = None) -> int:
+    """Headless check that the frozen bundle actually works.
+
+    A --windowed executable has no console, so an import failure only raises a
+    message box and the process stays alive -- 'it launched' proves nothing.
+    This writes a verdict to a file and returns a real exit code.
+
+        RGI-MSn-Interpreter.exe --selftest [report.txt]
+    """
+    lines = [f"frozen={getattr(sys, 'frozen', False)}  python={sys.version.split()[0]}"]
+    base = getattr(sys, "_MEIPASS", None)
+    lines.append(f"_MEIPASS={base}")
+    lines.append(f"TCL_LIBRARY={os.environ.get('TCL_LIBRARY')}")
+    lines.append(f"TK_LIBRARY={os.environ.get('TK_LIBRARY')}")
+    if base:
+        for sub, probe in (("_tcl_data", "init.tcl"), ("_tk_data", "tk.tcl")):
+            d = os.path.join(base, sub)
+            f = os.path.join(d, probe)
+            lines.append(f"  {sub}: dir={os.path.isdir(d)} "
+                         f"n={len(os.listdir(d)) if os.path.isdir(d) else 0} "
+                         f"{probe}={os.path.isfile(f)} "
+                         f"size={os.path.getsize(f) if os.path.isfile(f) else 0}")
+        for dll in ("tcl86t.dll", "tk86t.dll"):
+            p = os.path.join(base, dll)
+            lines.append(f"  {dll}: {os.path.isfile(p)} "
+                         f"{os.path.getsize(p) if os.path.isfile(p) else 0}")
+    ok = True
+    try:
+        import _tkinter
+        lines.append(f"tkinter import OK   Tcl {_tkinter.TCL_VERSION} / Tk {_tkinter.TK_VERSION}")
+        root = tk.Tk()
+        root.withdraw()
+        lines.append(f"Tk root created OK  windowingsystem={root.tk.call('tk', 'windowingsystem')}")
+        root.destroy()
+    except Exception as exc:
+        ok = False
+        lines.append("TK FAILED: " + repr(exc))
+    try:
+        s = R.RGIStructure(["dGalA", "Rha", "GalA", "Rha", "GalA", "Rha"],
+                           acyl="dAc", oac={(5, 3): "Ac"}, name="E")
+        mz = R.precursor_mz(s)
+        good = abs(mz - 1571.6225) < 1e-3
+        ok = ok and good
+        lines.append(f"rgi_msn OK          DP6 1-OAc [M+Na]+ = {mz:.4f} "
+                     f"(expected 1571.6225) {'PASS' if good else 'MISMATCH'}")
+        _, frs = R.fragments_for(s, [], 1, "Na")
+        lines.append(f"fragment engine OK  {len(frs)} MS2 fragments")
+    except Exception as exc:
+        ok = False
+        lines.append("MODEL FAILED: " + repr(exc))
+    lines.append("SELFTEST " + ("PASS" if ok else "FAIL"))
+    text = "\n".join(lines)
+    target = report_path or os.path.join(
+        os.path.dirname(sys.executable if getattr(sys, "frozen", False)
+                        else os.path.abspath(__file__)), "selftest.txt")
+    try:
+        with open(target, "w") as fh:
+            fh.write(text + "\n")
+    except OSError:
+        pass
+    print(text)
+    return 0 if ok else 1
+
+
 def main():
+    if "--selftest" in sys.argv:
+        i = sys.argv.index("--selftest")
+        arg = sys.argv[i + 1] if len(sys.argv) > i + 1 else None
+        return selftest(arg)
     App().mainloop()
+    return 0
 
 
 if __name__ == "__main__":

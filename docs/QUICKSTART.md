@@ -17,17 +17,38 @@ Check that the file you have is the one that was tested:
 
 | | |
 |---|---|
-| size | 7,696,896 bytes (7.3 MB) |
-| SHA-256 | `410b8f335029cc017b5f3b7d446638895aeebc026e1a121c93c60df7c5e6f771` |
-| built | 2026-11-07, PyInstaller `--onefile --windowed`, Windows x64 |
-| verified | launched and ran 12 s; `rgi_msn` present in the bundle table of contents with no import warnings; the same three actions smoke-tested from source reproduce the published-data results |
+| size | 9,375,885 bytes (8.9 MB) |
+| SHA-256 | `36511d8d09de91d429a9eba572ffab0ba2660e2b19e966bcb1496bc899a31a6d` |
+| built | PyInstaller `--onefile --windowed`, Windows x64 |
+| verified | `--selftest` exits 0: Tcl/Tk load, a Tk window is created, and the model reproduces the DP6 1-OAc precursor at 1571.6225 |
 
 ```powershell
 (Get-FileHash RGI-MSn-Interpreter.exe -Algorithm SHA256).Hash
 ```
 
-A different hash means a different build — rebuild from source with the recipe at the
-bottom of this file rather than trusting it.
+A different hash means a different build. In particular, **do not use the original
+v0.1.0 binary** (SHA-256 `410b8f33…`): it was missing the Tcl/Tk runtime DLLs and failed
+at startup with `ImportError: DLL load failed while importing _tkinter`.
+
+### If it will not start
+
+Run it with the self-test flag — it writes a diagnostic report instead of opening a
+window, and exits non-zero on failure:
+
+```powershell
+.\RGI-MSn-Interpreter.exe --selftest report.txt
+type report.txt
+```
+
+The report records whether Tcl/Tk loaded, whether a window could be created, and whether
+the fragment engine returns the expected reference mass. Send it along if you need help.
+
+An alternative build is published as **RGI-MSn-Interpreter-win64.zip** — the same
+application as a folder rather than a single file. It unpacks everything next to the
+executable instead of expanding into the temporary directory at each launch, which is
+the more reliable choice on machines where the temp folder is redirected, locked down,
+or scanned aggressively. Unzip it and run `RGI-MSn-Interpreter.exe` inside the folder;
+keep the `_internal` folder beside it.
 
 ### Using the window
 
