@@ -51,8 +51,19 @@ isomers of the DP6 backbone. Right: MS3 assignment degeneracy against mass toler
 
 No dependencies -- `rgi_msn.py` and the Tkinter front end are pure standard library.
 
+**Windows, no Python needed** -- download from the [latest release](https://github.com/Yungstedt/rgi-msn-interpreter/releases/latest):
+
+| file | what it is | SHA-256 |
+|---|---|---|
+| [RGI-MSn-Interpreter.exe](https://github.com/Yungstedt/rgi-msn-interpreter/releases/download/v0.1.0/RGI-MSn-Interpreter.exe) | single file | `36511d8d09de91d429a9eba572ffab0ba2660e2b19e966bcb1496bc899a31a6d` |
+| [RGI-MSn-Interpreter-win64.zip](https://github.com/Yungstedt/rgi-msn-interpreter/releases/download/v0.1.0/RGI-MSn-Interpreter-win64.zip) | same app as a folder | `9bdce859294a34934c2c70e420760c364bdbfe403f2cfd04d5233a3a7508d603` |
+
+Both are unsigned, so SmartScreen warns about an unknown publisher. Prefer the zip on machines with a redirected or locked-down temporary directory. If the application will not start, run it with `--selftest report.txt` for a diagnostic.
+
+**Any platform, from source:**
+
 ```bash
-git clone https://github.com/OWNER/rgi-msn-interpreter
+git clone https://github.com/Yungstedt/rgi-msn-interpreter
 cd rgi-msn-interpreter
 python rgi_gui.py          # desktop app
 ```
