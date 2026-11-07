@@ -1,0 +1,36 @@
+level,system,ion_calc,mz_calc,mz_published,delta,note,agrees
+MS1,"d3-acetyl DP6, 0 OAc [M+Na]+",M,1574.6413,1574,0.641,,True
+MS1,"d3-acetyl DP6, 1 OAc [M+Na]+",M,1571.6225,1571,0.623,,True
+MS1,"d3-acetyl DP6, 2 OAc [M+Na]+",M,1568.6037,1568,0.604,,True
+MS1,"d3-acetyl DP6, 3 OAc [M+Na]+",M,1565.5849,1565,0.585,,True
+MS1,"propionyl DP6, 0 OAc [M+Na]+",M,1717.6,1717,0.6,,True
+MS1,"propionyl DP6, 1 OAc [M+Na]+",M,1703.5844,1703,0.584,,True
+MS1,"propionyl DP6, 2 OAc [M+Na]+",M,1689.5687,1689,0.569,,True
+MS1,"d3-acetyl DP6, 0 OAc [M-H]-",M,1550.6448,1550,0.645,,True
+MS1,"d3-acetyl DP6, 1 OAc [M-H]-",M,1547.626,1547,0.626,,True
+MS1,"d3-acetyl DP6, 2 OAc [M-H]-",M,1544.6072,1544,0.607,,True
+MS1,"d3-acetyl celery DP4, 1 OAc [M+Na]+",M,1069.4149,1069,0.415,,True
+MS1,"d3-acetyl celery DP4+Gal, 1 OAc [M+Na]+",M,1366.5559,1366,0.556,,True
+MS2,"m/z 1571, common to E and F",Y4,1087.4255,1087,0.426,,True
+MS2,"m/z 1571, common to E and F",C3,791.2877,791,0.288,,True
+MS2,"m/z 1571, common to E and F",B3,773.2771,773,0.277,,True
+MS2,"m/z 1571, common to E and F",B2,507.1862,507,0.186,,True
+MS2,"m/z 1571, common to E and F",B3Y5,525.1968,525,0.197,,True
+MS2,"m/z 1571, structure E (Rha-red 3-O-Ac)",B5,1275.4847,1275,0.485,isomer-diagnostic,True
+MS2,"m/z 1571, structure F (Rha-inner 3-O-Ac)",B5,1272.4659,1272,0.466,isomer-diagnostic,True
+MS2,"m/z 1571, structure E (Rha-red 3-O-Ac)",Y2,585.2179,585,0.218,isomer-diagnostic,True
+MS2,"m/z 1571, structure F (Rha-inner 3-O-Ac)",Y2,588.2368,588,0.237,isomer-diagnostic,True
+MS2,"m/z 1547 [M-H]-, structure E",Y5,1299.5457,1299,0.546,,True
+MS2,"m/z 1547 [M-H]-, structure E",Z5,1281.5351,1281,0.535,,True
+MS2,"m/z 1547 [M-H]-, structure E",Z4,1045.4184,1045,0.418,published as Y4,True
+MS2,"m/z 1547 [M-H]-, structure E",Y3,797.3381,797,0.338,,True
+MS2,"m/z 1703 propionyl, structure E",B3,839.258,839,0.258,,True
+MS2,"m/z 1703 propionyl, structure E",Y4,1175.4001,1175,0.4,published as B5,True
+MS2,"m/z 1069 celery DP4, GalA 3-O-Ac",B3,770.2583,770,0.258,isomer-diagnostic,True
+MS2,"m/z 1069 celery DP4, Rha-red 3-O-Ac",B3,773.2771,773,0.277,isomer-diagnostic,True
+MS2,m/z 1069 celery DP4,Y2,585.2179,585,0.218,,True
+MS2,m/z 1069 celery DP4,B2,507.1862,507,0.186,,True
+MS2,"m/z 1366, Gal on inner Rha",B3,1067.3993,1067,0.399,branch-diagnostic,True
+MS2,"m/z 1366, Gal on reducing Rha",B3a,770.2583,770,0.258,branch-diagnostic,True
+MS2,"m/z 1568 DP6 2 OAc, Rha-inner + adjacent GalA 3-O-Ac",Y4,1084.4067,1084,0.407,,True
+MS2,"m/z 1568 DP6 2 OAc, Rha-inner + adjacent GalA 3-O-Ac",B5,1269.447,1269,0.447,,True
