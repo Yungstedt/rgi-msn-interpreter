@@ -95,9 +95,47 @@ What this tool does *worse*: it covers only RG-I backbones with an optional Gal 
 fixed set of acyl donors, where general tools cover arbitrary topologies and a much wider
 range of derivatizations.
 
-No head-to-head benchmark against GlycoWorkbench has been run; the statement above is a
-property of residue-granular representations, demonstrated on this tool's own model by the
-zero-discriminating-glycosidic-ion result in Figure 1, not a measurement of that software.
+### Prior art, and what is not claimed here
+
+Combinatorial bond breaking on an explicit molecular graph is **not** a new idea, and no
+claim of algorithmic novelty is made for it. MetFrag introduced systematic bond
+disconnection of a candidate structure for metabolite spectra at a single MS level
+(Wolf, Schmidt, Mueller-Hannemann & Neumann, *BMC Bioinformatics* **2010**, 11, 148,
+[doi:10.1186/1471-2105-11-148](https://doi.org/10.1186/1471-2105-11-148)), and MAGMa
+extended exactly this to multistage data, generating a hierarchical tree of substructures
+down an MS<sup>n</sup> spectral tree (Ridder, van der Hooft, Verhoeven, de Vos, van Schaik &
+Vervoort, *Rapid Commun. Mass Spectrom.* **2012**, 26, 2461,
+[doi:10.1002/rcm.6364](https://doi.org/10.1002/rcm.6364); applied in *Anal. Chem.* **2013**,
+85, 6033, [doi:10.1021/ac400861a](https://doi.org/10.1021/ac400861a)). The fragment
+generator here is architecturally in that family: sequential partitioning of a parent
+substructure, one partition per MS level.
+
+What those tools do not do is speak carbohydrate. They return substructures, not
+Domon-Costello ions. Conversely the established glycan tools return Domon-Costello ions but
+work on residue-and-topology representations - GlycoWorkbench (Ceroni, Maass, Geyer, Geyer,
+Dell & Haslam, *J. Proteome Res.* **2008**, 7, 1650,
+[doi:10.1021/pr7008252](https://doi.org/10.1021/pr7008252)), Glyco-Peakfinder (Maass et al.,
+*Proteomics* **2007**, 7, 4435, [doi:10.1002/pmic.200700253](https://doi.org/10.1002/pmic.200700253)),
+GlycoDeNovo (Hong et al., *J. Am. Soc. Mass Spectrom.* **2017**, 28, 2288,
+[doi:10.1007/s13361-017-1760-6](https://doi.org/10.1007/s13361-017-1760-6); GlycoDeNovo2,
+Chen et al., **2022**, 33, 436, [doi:10.1021/jasms.1c00288](https://doi.org/10.1021/jasms.1c00288)),
+and more recently learned approaches (Urban et al., *Nat. Methods* **2024**, 21, 1206,
+[doi:10.1038/s41592-024-02314-6](https://doi.org/10.1038/s41592-024-02314-6); Bligh et al.,
+*J. Am. Soc. Mass Spectrom.* **2025**, 36, 1686,
+[doi:10.1021/jasms.5c00093](https://doi.org/10.1021/jasms.5c00093)).
+
+The contribution claimed here is therefore narrow and specific: a substructure-partitioning
+MS<sup>n</sup> interpreter in which the Domon-Costello label is *derived from* the atom
+partition rather than enumerated in advance, carrying derivatization-specific acyl siting,
+and reporting the resulting assignment degeneracy explicitly. On the MS<sup>3</sup> of
+Y<sub>4</sub> at depth 2 the labelling is a bijection - 1,855 atom partitions to 1,855
+distinct labels - over only 541 distinct *m/z*.
+
+Two honest caveats. No head-to-head benchmark against any of the tools above has been run;
+the residue-granularity argument is a property of that class of representation, shown on
+this tool's own model by the zero-discriminating-glycosidic-ion result in Figure 1, and the
+full text of the GlycoWorkbench paper was not accessible to verify its substituent handling
+directly. And the literature search behind this section was bounded, not exhaustive.
 
 ## Mass tolerance does not need to be loosened at deeper MS<sup>n</sup>
 
