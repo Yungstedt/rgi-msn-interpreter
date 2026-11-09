@@ -130,9 +130,12 @@ depth* is how many further cleavage events to allow below that precursor — 1 i
 
 for a clean MS³, 2 widens the net at the cost of many more candidates. Keep the
 
-tolerance at 5 mmu for Orbitrap data; widen it only for ion-trap MS<sup>n</sup>
-
-detection, and read the degeneracy warning in `README_rgi_msn.md` before you do.
+tolerance at 5 mmu at **every** MS<sup>n</sup> level. On an Orbitrap the mass accuracy
+does not degrade with MS<sup>n</sup> depth (measured: 0.68 mmu median residual at
+MS<sup>2</sup>, 0.84 mmu at MS<sup>3</sup>), so the habit of widening the window at MS<sup>3</sup>
+— inherited from ion-trap practice, where the product scan is mass-measured in the trap —
+only inflates the candidate list. Correct the per-spectrum calibration offset instead, and
+read [METHOD.md](METHOD.md) sections 5 and 6 on tolerance and degeneracy before widening.
 
 
 
@@ -284,6 +287,8 @@ Two settings matter on real spectra and are on by default:
   largest features in a per-deuteroacetylated spectrum; without it those peaks look like
   unexplained noise or get mis-assigned.
 
-Instrument calibration drifts. On the published MS2 of *m/z* 1571 every reported
-fragment sits about +2.8 mmu high, so either set the tolerance to 5-8 mmu or remove the
-offset first with `rgi_io.estimate_offset()` / `apply_offset()`.
+Instrument calibration drifts, and the drift is a constant offset rather than scatter. On
+the published MS2 of *m/z* 1571 every reported fragment sits +2.2 to +4.2 mmu high.
+**Remove the offset** with `rgi_io.estimate_offset()` / `apply_offset()` — the application
+does this for you — rather than widening the tolerance to absorb it. After correction every
+one of those nine ions falls within ±1.4 mmu.
