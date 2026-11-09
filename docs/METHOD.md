@@ -25,17 +25,6 @@ on which carbon. That is what distinguishes 3-*O*- from 2-*O*- or 4-*O*-acetylat
 
 ## 2. Cleavage conventions
 
-![Atom graph of a deuteroacetylated RG-I DP6 and of one rhamnose ring](../figures/rgi_atom_graph_scheme.png)
-
-**Scheme 1.** Residues, linkage oxygens and acyl groups are all nodes of one graph (left).
-At atom resolution (right) the six ring bonds are numbered as the code numbers them, and the
-<sup>1,3</sup>X<sub>0</sub> cut keeps C1, O5, C5 and C4 - so it reports O-4 and O-1 and is
-blind to O-3. The two positional isomers give this fragment the same 25 atoms in the same
-connectivity but differ by 3.019 Da
-(C<sub>8</sub>H<sub>6</sub>D<sub>6</sub>O<sub>5</sub>, *m/z* 217.095 for 3-*O*-Ac;
-C<sub>8</sub>H<sub>9</sub>D<sub>3</sub>O<sub>5</sub>, *m/z* 214.077 for 4-*O*-Ac).
-
-
 The glycosidic unit C1-O-Cp carries two cleavable bonds, giving B/Y (C1-O) and C/Z (O-Cp),
 with the oxygen-retaining side gaining one hydrogen. Ring bonds are numbered 0: O5-C1,
 1: C1-C2, 2: C2-C3, 3: C3-C4, 4: C4-C5, 5: C5-O5; a cross-ring cleavage cuts two of them,
