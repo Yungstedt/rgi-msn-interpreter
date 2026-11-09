@@ -562,13 +562,24 @@ def assign_all(mz: float,
                frags: Sequence[Fragment],
                struct: RGIStructure,
                adduct: str = "Na",
-               tol_mmu: float = 10.0) -> List[Tuple[float, str]]:
-    """Every theoretical fragment within tolerance of one peak (not just the best)."""
+               tol_mmu: float = 10.0,
+               losses: Optional[dict] = None) -> List[Tuple[float, str]]:
+    """Every theoretical fragment within tolerance of one peak (not just the best).
+
+    `losses` maps a name to a neutral mass removed from the fragment before
+    comparison -- real per-acylated RG-I spectra are full of d3-acetic acid
+    (63.040) and acetic acid losses, and without them those peaks look like
+    unexplained noise or get mis-assigned to an unrelated cleavage.
+    """
     out = []
     for f in frags:
-        c = f.mz(adduct)
-        if abs(mz - c) * 1000.0 <= tol_mmu:
-            out.append((c, label(f, struct)))
+        base = f.mz(adduct)
+        cands = [(base, "")]
+        if losses:
+            cands += [(base - dm, f" -{nm}") for nm, dm in losses.items()]
+        for c, suffix in cands:
+            if abs(mz - c) * 1000.0 <= tol_mmu:
+                out.append((c, label(f, struct) + suffix))
     return sorted(set(out))
 
 
@@ -603,7 +614,8 @@ def interpret(peaks: Sequence,
               depth: int = 2,
               adduct: str = "Na",
               tol_mmu: float = 10.0,
-              isolation_mmu: float = 1500.0) -> Interpretation:
+              isolation_mmu: float = 1500.0,
+              losses: Optional[dict] = None) -> Interpretation:
     """Score candidate positional isomers against an observed peak list.
 
     An isomer is credited only for peaks it explains with an ion that no other
@@ -611,8 +623,16 @@ def interpret(peaks: Sequence,
     candidate carry no positional information and are reported but not scored.
     """
     frs: Dict[str, List[Fragment]] = {}
+    excluded: List[str] = []
     for s in structures:
-        _, f = fragments_for(s, precursor_path, depth, adduct, isolation_mmu)
+        try:
+            _, f = fragments_for(s, precursor_path, depth, adduct, isolation_mmu)
+        except ValueError:
+            # This candidate cannot produce the isolated precursor at all -- e.g.
+            # an isomer acetylated on the reducing Rha has no B3 at 770. That is
+            # evidence against it, not a failure, so exclude it and carry on.
+            excluded.append(s.name)
+            f = []
         frs[s.name] = f
 
     rows: List[dict] = []
@@ -622,7 +642,7 @@ def interpret(peaks: Sequence,
 
     for p in peaks:
         mz, inten = (p if isinstance(p, (tuple, list)) else (p, 1.0))
-        hits = {s.name: assign_all(mz, frs[s.name], s, adduct, tol_mmu)
+        hits = {s.name: assign_all(mz, frs[s.name], s, adduct, tol_mmu, losses)
                 for s in structures}
         explained = [n for n, h in hits.items() if h]
         row = {"mz": mz, "intensity": inten,
@@ -642,6 +662,8 @@ def interpret(peaks: Sequence,
                   "n_theoretical": len(frs[n])}
               for n in credit}
     ranking = sorted(((n, credit[n]) for n in credit), key=lambda t: -t[1])
+    for n in excluded:
+        scores[n]["excluded_by_precursor"] = True
     return Interpretation(rows, scores, ranking)
 
 
@@ -652,7 +674,9 @@ def minimal_mixture(peaks: Sequence,
                     adduct: str = "Na",
                     tol_mmu: float = 10.0,
                     max_components: int = 3,
-                    isolation_mmu: float = 1500.0) -> dict:
+                    isolation_mmu: float = 1500.0,
+                    losses: Optional[dict] = None,
+                    coverage: float = 1.0) -> dict:
     """Smallest combination of candidate isomers that explains every peak.
 
     RG-I digests are routinely mixtures of positional isomers, so the question
@@ -662,27 +686,48 @@ def minimal_mixture(peaks: Sequence,
     """
     cover: Dict[str, Set[int]] = {}
     for s in structures:
-        _, frs = fragments_for(s, precursor_path, depth, adduct, isolation_mmu)
+        try:
+            _, frs = fragments_for(s, precursor_path, depth, adduct, isolation_mmu)
+        except ValueError:
+            cover[s.name] = set()          # cannot make the isolated precursor
+            continue
         mzs = [f.mz(adduct) for f in frs]
+        if losses:
+            mzs = mzs + [c - dm for c in mzs for dm in losses.values()]
         hit = set()
         for i, p in enumerate(peaks):
             mz = p[0] if isinstance(p, (tuple, list)) else p
             if any(abs(mz - c) * 1000.0 <= tol_mmu for c in mzs):
                 hit.add(i)
         cover[s.name] = hit
-    need = set(range(len(peaks)))
+
+    w = [(p[1] if isinstance(p, (tuple, list)) and len(p) > 1 else 1.0)
+         for p in peaks]
+    explainable = set().union(*cover.values()) if cover else set()
+    total = sum(w[i] for i in explainable) or 1.0
+
+    def frac(idx):
+        return sum(w[i] for i in idx) / total
+
     names = list(cover)
+    # Real spectra contain noise, surviving precursor and out-of-model losses,
+    # so requiring every peak to be explained fails outright. The target is a
+    # fraction of the intensity that IS explainable by some candidate.
     for k in range(1, max_components + 1):
-        sols = [combo for combo in itertools.combinations(names, k)
-                if set().union(*(cover[n] for n in combo)) == need]
+        sols = [c for c in itertools.combinations(names, k)
+                if frac(set().union(*(cover[n] for n in c))) >= coverage - 1e-9]
         if sols:
+            sols.sort(key=lambda c: -frac(set().union(*(cover[n] for n in c))))
+            got = set().union(*(cover[n] for n in sols[0]))
             return {"n_components": k, "solutions": sols, "coverage": cover,
-                    "unexplained": []}
+                    "explained_fraction": frac(got),
+                    "unexplained": sorted(explainable - got)}
     best = max(itertools.combinations(names, max_components),
-               key=lambda c: len(set().union(*(cover[n] for n in c))))
+               key=lambda c: frac(set().union(*(cover[n] for n in c))))
     got = set().union(*(cover[n] for n in best))
     return {"n_components": None, "solutions": [best], "coverage": cover,
-            "unexplained": sorted(need - got)}
+            "explained_fraction": frac(got),
+            "unexplained": sorted(explainable - got)}
 
 
 def diagnostic_ions(structs: Sequence[RGIStructure],

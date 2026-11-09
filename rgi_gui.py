@@ -55,6 +55,7 @@ import tkinter as tk                                            # noqa: E402
 from tkinter import filedialog, messagebox, ttk                  # noqa: E402
 
 import rgi_msn as R                                              # noqa: E402
+import rgi_io                                                    # noqa: E402
 
 APP = "RG-I MS\u207f Interpreter"
 PRESETS = {
@@ -228,6 +229,16 @@ class App(tk.Tk):
         self.tol = ttk.Entry(a, width=8)
         self.tol.insert(0, "5")
         self.tol.grid(row=4, column=1, sticky="w", pady=2)
+        ttk.Label(a, text="Min intensity (% base)").grid(row=5, column=0, sticky="w")
+        self.thr = ttk.Entry(a, width=8)
+        self.thr.insert(0, "0.5")
+        self.thr.grid(row=5, column=1, sticky="w", pady=2)
+        self.deiso = tk.BooleanVar(value=True)
+        ttk.Checkbutton(a, text="deisotope on load",
+                        variable=self.deiso).grid(row=6, column=0, columnspan=2, sticky="w")
+        self.uselosses = tk.BooleanVar(value=True)
+        ttk.Checkbutton(a, text="allow AcOH / d\u2083-AcOH / H\u2082O losses",
+                        variable=self.uselosses).grid(row=7, column=0, columnspan=2, sticky="w")
         a.columnconfigure(1, weight=1)
 
         # --- peaks ---
@@ -291,7 +302,9 @@ class App(tk.Tk):
                                  "(0 = non-reducing end)")
             branches[(i, 4)] = "Gal"
         path = [float(t) for t in self.path.get().replace(",", " ").split()]
-        return dict(bb=bb, acyl=DERIVS[self.deriv.get()],
+        return dict(losses=(rgi_io.NEUTRAL_LOSSES if self.uselosses.get() else None),
+                    thr=float(self.thr.get()) / 100.0, deiso=bool(self.deiso.get()),
+                    bb=bb, acyl=DERIVS[self.deriv.get()],
                     noac=int(self.noac.get()), branches=branches,
                     adduct=ADDUCTS[self.adduct.get()], path=path,
                     depth=int(self.depth.get()), tol=float(self.tol.get()),
@@ -385,7 +398,7 @@ class App(tk.Tk):
         def job():
             cands = self.candidates(c)
             res = R.interpret(pk, cands, c["path"], c["depth"], c["adduct"],
-                              c["tol"])
+                              c["tol"], losses=c["losses"])
             hdr = ["m/z", "intensity", "explained by", "n isomers",
                    "n assignments", "unique?", "best assignment"]
             rows = []
@@ -424,16 +437,19 @@ class App(tk.Tk):
         def job():
             cands = self.candidates(c)
             mm = R.minimal_mixture(pk, cands, c["path"], c["depth"],
-                                   c["adduct"], c["tol"], max_components=3)
+                                   c["adduct"], c["tol"], max_components=3,
+                                   losses=c["losses"], coverage=0.95)
             hdr = ["solution", "components", "peaks covered"]
             rows = []
             for i, sol in enumerate(mm["solutions"], 1):
                 cov = set().union(*(mm["coverage"][n] for n in sol))
                 rows.append([i, " + ".join(sol), "%d/%d" % (len(cov), len(pk))])
             n = mm["n_components"]
-            note = ("%d component(s) required; %d equally small solution(s)"
-                    % (n, len(mm["solutions"]))) if n else \
-                   "no combination up to 3 components explains every peak"
+            frac = mm.get("explained_fraction", 0.0)
+            note = ("%d component(s); %d equally small solution(s); %.0f%% of "
+                    "explainable intensity" % (n, len(mm["solutions"]), frac * 100)
+                    ) if n else ("no combination up to 3 components reaches 95%% "
+                                 "coverage (best %.0f%%)" % (frac * 100))
             return hdr, rows, [], note
         self.run(job, "searching mixtures")
 
@@ -441,22 +457,50 @@ class App(tk.Tk):
 
     def load_peaks(self):
         fn = filedialog.askopenfilename(
-            title="Load peak list",
-            filetypes=[("Peak lists", "*.csv *.txt *.tsv *.mgf"),
+            title="Load spectrum or peak list",
+            filetypes=[("Spectra and peak lists", "*.csv *.txt *.tsv"),
                        ("All files", "*.*")])
         if not fn:
             return
-        keep = []
-        with open(fn, "r", errors="ignore") as fh:
-            for line in fh:
-                s = line.replace(",", " ").replace("\t", " ").strip()
-                if not s or not (s[0].isdigit() or s[0] == "."):
-                    continue
-                keep.append(s)
+        try:
+            thr = float(self.thr.get()) / 100.0
+        except ValueError:
+            thr = 0.005
+        try:
+            sp = rgi_io.read_spectrum(fn, rel_threshold=thr)
+        except Exception as exc:
+            messagebox.showerror(APP, "Could not read %s\n\n%s"
+                                 % (os.path.basename(fn), exc))
+            return
+        if not sp.peaks:
+            messagebox.showwarning(APP, "No peaks found in %s."
+                                   % os.path.basename(fn))
+            return
+        peaks = sp.peaks
+        if self.deiso.get():
+            peaks = rgi_io.deisotope(peaks, tol_mmu=float(self.tol.get()) * 2)
         self.peaks.delete("1.0", "end")
-        self.peaks.insert("1.0", "\n".join(keep))
-        self.status.config(text="loaded %d peaks from %s"
-                           % (len(keep), os.path.basename(fn)))
+        self.peaks.insert("1.0", "\n".join(f"{m:.4f} {v:.6g}" for m, v in peaks))
+        # A FreeStyle export states its own MS^n path and polarity in the scan
+        # filter, so fill those in rather than making the user retype them.
+        if sp.precursors:
+            self.path.delete(0, "end")
+            self.path.insert(0, " ".join(f"{p:g}" for p in sp.precursors[1:]))
+        if sp.polarity:
+            want = "[M-H]-" if sp.polarity == "-" else "[M+Na]+"
+            if want in ADDUCTS:
+                self.adduct.current(list(ADDUCTS).index(want))
+        bits = [f"{len(peaks)} peaks"]
+        if sp.source_mode == "profile":
+            bits.append(f"centroided from {sp.n_raw:,} profile points")
+        if self.deiso.get() and len(sp.peaks) != len(peaks):
+            bits.append(f"{len(sp.peaks) - len(peaks)} isotopes removed")
+        if sp.ms_level:
+            bits.append(f"MS{sp.ms_level} {sp.polarity or ''}"
+                        + (" " + "->".join(f"{p:g}" for p in sp.precursors)
+                           if sp.precursors else ""))
+        self.status.config(text=os.path.basename(fn) + ": " + ", ".join(bits),
+                           foreground="#2b7a2b")
 
     def export(self):
         if not self.rows:
@@ -520,6 +564,20 @@ def selftest(report_path: str | None = None) -> int:
                      f"(expected 1571.6225) {'PASS' if good else 'MISMATCH'}")
         _, frs = R.fragments_for(s, [], 1, "Na")
         lines.append(f"fragment engine OK  {len(frs)} MS2 fragments")
+        f = rgi_io.parse_filter(
+            " FTMS + p ESI Full ms3 1571.6100@cid30.00 1087.4200@hcd30.00 [295.0-1098.0]")
+        good = (f.get("ms_level") == 3 and f.get("polarity") == "+"
+                and f.get("precursors") == [1571.61, 1087.42])
+        ok = ok and good
+        lines.append(f"reader OK           scan filter -> MS{f.get('ms_level')} "
+                     f"{f.get('polarity')} {f.get('precursors')} "
+                     f"{'PASS' if good else 'MISMATCH'}")
+        cent = rgi_io.centroid([99.0, 99.001, 99.002, 99.003],
+                               [0.0, 50.0, 100.0, 40.0], rel_threshold=0.01)
+        good2 = len(cent) == 1 and abs(cent[0][0] - 99.0019) < 2e-3
+        ok = ok and good2
+        lines.append(f"centroid OK         {len(cent)} peak at "
+                     f"{cent[0][0]:.4f} {'PASS' if good2 else 'MISMATCH'}")
     except Exception as exc:
         ok = False
         lines.append("MODEL FAILED: " + repr(exc))
